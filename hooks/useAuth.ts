@@ -26,7 +26,7 @@ export function useAuth() {
 
     load();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_: string, session: any) => {
       if (!mounted) return;
       setState({ user: session?.user ?? null, session: session ?? null, loading: false });
     });

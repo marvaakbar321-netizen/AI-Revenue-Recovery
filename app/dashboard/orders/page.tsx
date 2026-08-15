@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { OrdersPageClient } from "@/components/dashboard/orders-page-client";
+import { OrdersDashboardClient } from "@/components/dashboard/orders-dashboard-client";
 
 export const metadata: Metadata = {
   title: "Orders | AI Revenue Recovery",
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function OrdersPage() {
   return (
     <DashboardShell>
-      <OrdersPageClient />
+      <OrdersDashboardClient />
     </DashboardShell>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
@@ -9,19 +9,43 @@ import { usePathname } from "next/navigation";
 import { Menu, Search, Bell, X, Home, BarChart3, Box, ShoppingBag, Users, AlertTriangle, Sparkles, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navItems } from "@/lib/dashboard-data";
+import useAuth from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import LogoutButton from "@/components/auth/LogoutButton";
 import logoImage from "@/app/logo.png";
 
-const user = {
-  name: "Mia Harper",
-  email: "mia@revrecover.com",
-};
+// fallback user when not signed in via supabase
+function getLocalDemoUser() {
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem("airevenue_demo_user") : null;
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (err) {
+    return null;
+  }
+}
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mountedLocalUser, setMountedLocalUser] = useState<any>(null);
   const router = useRouter();
+  const { user: authUser } = useAuth();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setMountedLocalUser(getLocalDemoUser());
+  }, []);
+
+  const displayName =
+    authUser?.user_metadata?.full_name ||
+    authUser?.user_metadata?.name ||
+    authUser?.email?.split("@")[0] ||
+    mountedLocalUser?.fullName ||
+    mountedLocalUser?.full_name ||
+    mountedLocalUser?.email?.split("@")[0] ||
+    "User";
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--text)]">
@@ -145,22 +169,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <button className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] transition hover:bg-slate-50">
                 <Bell className="h-5 w-5" />
               </button>
-              <button className="inline-flex items-center gap-3 rounded-[1.25rem] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] transition hover:bg-slate-50">
-                <div className="relative h-10 w-10 overflow-hidden rounded-[1rem] bg-slate-100">
-                  <Image src={logoImage} alt="Site logo" fill className="object-cover" />
+              <div className="inline-flex items-center gap-3">
+                <div className="inline-flex items-center gap-3 rounded-[1.25rem] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)]">
+                  <div className="relative h-10 w-10 overflow-hidden rounded-[1rem] bg-slate-100">
+                    <Image src={logoImage} alt="Site logo" fill className="object-cover" />
+                  </div>
+                  <span>{displayName}</span>
                 </div>
-                <span>{user.name}</span>
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  router.push("/");
-                }}
-                className="inline-flex items-center gap-2 rounded-[1rem] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] transition hover:bg-slate-50"
-              >
-                Sign out
-              </button>
+
+                <LogoutButton />
+              </div>
             </div>
           </header>
 
@@ -213,6 +231,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 );
               })}
             </nav>
+            <div className="mt-6 border-t border-[var(--border)] pt-4">
+              <LogoutButton />
+            </div>
           </div>
         </div>
       ) : null}

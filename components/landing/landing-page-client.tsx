@@ -11,6 +11,7 @@ import { FAQAccordion } from "@/components/landing/faq-accordion";
 import { CTASection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
 import { LoginModal } from "@/components/auth/login-modal";
+import SignUpModal from "@/components/auth/SignUpModal";
 import { problems, steps, features, benefits, testimonials, faqs } from "@/lib/landing-data";
 
 export function LandingPageClient() {
@@ -226,7 +227,8 @@ export function LandingPageClient() {
         <CTASection onOpenSignUp={openSignUp} />
       </main>
       <Footer />
-      <LoginModal open={authOpen} mode={authMode} onClose={() => setAuthOpen(false)} />
+      <LoginModal open={authOpen && authMode === "login"} mode={authMode} onClose={() => setAuthOpen(false)} />
+      <SignUpModal open={authOpen && authMode === "signup"} onClose={() => setAuthOpen(false)} onOpenLogin={() => { setAuthMode("login"); setAuthOpen(true); }} />
     </div>
   );
 }

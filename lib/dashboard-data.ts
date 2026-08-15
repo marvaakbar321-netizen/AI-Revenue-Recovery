@@ -22,6 +22,7 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
+  { href: "/dashboard/store", label: "Store", icon: ShoppingCart },
   { href: "/dashboard/revenue", label: "Revenue", icon: BarChart3 },
   { href: "/dashboard/orders", label: "Orders", icon: ShoppingBag },
   { href: "/dashboard/products", label: "Products", icon: Box },
@@ -30,6 +31,7 @@ export const navItems: NavItem[] = [
   { href: "/dashboard/insights", label: "AI Insights", icon: Sparkles },
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/profile", label: "Profile", icon: Users },
 ];
 
 export type StatItem = {
