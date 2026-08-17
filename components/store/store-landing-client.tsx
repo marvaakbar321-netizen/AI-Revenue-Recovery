@@ -75,7 +75,7 @@ const STORE = {
   heroDescription: "Discover our latest collection and shop your favorite essentials.",
 };
 
-export function StoreLandingClient() {
+export function StoreLandingClient({ slug = "store" }: { slug?: string }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { itemCount } = useStoreCart();
 
@@ -83,7 +83,7 @@ export function StoreLandingClient() {
     <div className="min-h-screen bg-white text-slate-900">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/store" className="flex items-center gap-3 min-w-0">
+          <Link href={`/store/${slug}`} className="flex items-center gap-3 min-w-0">
             <div className="relative h-9 w-9 overflow-hidden rounded-[0.75rem] border border-slate-200 bg-slate-100">
               {STORE.logo ? (
                 <Image src={STORE.logo} alt={STORE.name} fill className="object-cover" />
@@ -96,10 +96,10 @@ export function StoreLandingClient() {
           </Link>
 
           <nav className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
-            <Link href="/store" className="transition hover:text-slate-900">Home</Link>
-            <Link href="/store#products" className="transition hover:text-slate-900">Products</Link>
-            <Link href="/store#about" className="transition hover:text-slate-900">About Us</Link>
-            <Link href="/store#contact" className="transition hover:text-slate-900">Contact</Link>
+            <Link href={`/store/${slug}`} className="transition hover:text-slate-900">Home</Link>
+            <Link href={`/store/${slug}#products`} className="transition hover:text-slate-900">Products</Link>
+            <Link href={`/store/${slug}#about`} className="transition hover:text-slate-900">About Us</Link>
+            <Link href={`/store/${slug}#contact`} className="transition hover:text-slate-900">Contact</Link>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -117,7 +117,7 @@ export function StoreLandingClient() {
             >
               <User className="h-4 w-4" />
             </button>
-            <Link href="/store/checkout" className="inline-flex items-center gap-2 rounded-[0.75rem] border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">
+            <Link href={`/store/${slug}/checkout`} className="inline-flex items-center gap-2 rounded-[0.75rem] border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">
               <div className="relative inline-flex h-8 w-8 items-center justify-center rounded-[0.6rem] bg-purple-50 text-purple-700">
                 <ShoppingCart className="h-4 w-4" />
                 {itemCount > 0 ? (
@@ -142,10 +142,10 @@ export function StoreLandingClient() {
 
         {mobileMenuOpen ? (
           <nav className="border-t border-slate-200 px-4 py-3 md:hidden">
-            <Link href="/store" className="block rounded-[0.75rem] px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Home</Link>
-            <Link href="/store#products" className="block rounded-[0.75rem] px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Products</Link>
-            <Link href="/store#about" className="block rounded-[0.75rem] px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">About Us</Link>
-            <Link href="/store#contact" className="block rounded-[0.75rem] px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Contact</Link>
+            <Link href={`/store/${slug}`} className="block rounded-[0.75rem] px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Home</Link>
+            <Link href={`/store/${slug}#products`} className="block rounded-[0.75rem] px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Products</Link>
+            <Link href={`/store/${slug}#about`} className="block rounded-[0.75rem] px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">About Us</Link>
+            <Link href={`/store/${slug}#contact`} className="block rounded-[0.75rem] px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Contact</Link>
           </nav>
         ) : null}
       </header>
@@ -164,10 +164,10 @@ export function StoreLandingClient() {
                 </h1>
                 <p className="mt-4 max-w-lg text-base leading-7 text-slate-600">{STORE.heroDescription}</p>
                 <div className="mt-8 flex flex-wrap gap-3">
-                  <Link href="/store#products">
+                  <Link href={`/store/${slug}#products`}>
                     <Button variant="primary">Shop Now →</Button>
                   </Link>
-                  <Link href="/store#products">
+                  <Link href={`/store/${slug}#products`}>
                     <Button variant="secondary">Explore Collection</Button>
                   </Link>
                 </div>

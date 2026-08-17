@@ -1,12 +1,10 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { useStore } from "@/lib/store-context";
-import { supabase } from "@/lib/supabase";
-import type { Product } from "@/lib/store-utils";
+import { mockProducts, type MockProduct } from "@/lib/mock-products";
 
 const defaultForm = {
   name: "",
@@ -19,65 +17,15 @@ const defaultForm = {
 
 type FormState = typeof defaultForm;
 
-function mapProductRow(row: Product) {
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    price: Number(row.price),
-    stock: row.stock,
-    imageUrl: row.image_url ?? "",
-    status: (row.status ?? (row.active ? "Active" : "Draft")) as "Active" | "Draft",
-  };
-}
-
 export function ProductsDashboardClient() {
-  const { store, loading: storeLoading } = useStore();
-  const [products, setProducts] = useState<Array<ReturnType<typeof mapProductRow>>>([]);
+  const [products, setProducts] = useState<MockProduct[]>(mockProducts);
   const [search, setSearch] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<ReturnType<typeof mapProductRow> | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<MockProduct | null>(null);
   const [form, setForm] = useState<FormState>(defaultForm);
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!store) return;
-
-    let isMounted = true;
-    const currentStore = store;
-
-    async function loadProducts() {
-      setLoading(true);
-      setError("");
-
-      const { data, error: fetchError } = await supabase
-        .from("products")
-        .select("*")
-        .eq("store_id", currentStore.id)
-        .order("created_at", { ascending: false });
-
-      if (!isMounted) return;
-
-      if (fetchError) {
-        setError(fetchError.message);
-        setProducts([]);
-      } else if (data) {
-        setProducts(data.map(mapProductRow));
-      }
-
-      setLoading(false);
-    }
-
-    loadProducts();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [store]);
 
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -95,7 +43,7 @@ export function ProductsDashboardClient() {
     setIsFormOpen(true);
   };
 
-  const openEditModal = (product: ReturnType<typeof mapProductRow>) => {
+  const openEditModal = (product: MockProduct) => {
     setSelectedProduct(product);
     setForm({
       name: product.name,
@@ -116,7 +64,7 @@ export function ProductsDashboardClient() {
     setFormError("");
   };
 
-  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const trimmedName = form.name.trim();
@@ -139,100 +87,53 @@ export function ProductsDashboardClient() {
       return;
     }
 
-    if (!store) {
-      setFormError("You need a store before adding products.");
-      return;
-    }
-
     setIsSubmitting(true);
 
-    try {
-      if (selectedProduct) {
-        const { error: updateError } = await supabase
-          .from("products")
-          .update({
-            name: trimmedName,
-            description: trimmedDescription,
-            price: parsedPrice,
-            stock: parsedStock,
-            image_url: form.imageUrl.trim() || null,
-            status: form.status,
-          })
-          .eq("id", selectedProduct.id);
-
-        if (updateError) {
-          setFormError(updateError.message);
-          setIsSubmitting(false);
-          return;
-        }
-      } else {
-        const { error: insertError } = await supabase
-          .from("products")
-          .insert({
-            store_id: store.id,
-            name: trimmedName,
-            description: trimmedDescription,
-            price: parsedPrice,
-            stock: parsedStock,
-            image_url: form.imageUrl.trim() || null,
-            status: form.status,
-          });
-
-        if (insertError) {
-          setFormError(insertError.message);
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      const { data, error: refetchError } = await supabase
-        .from("products")
-        .select("*")
-        .eq("store_id", store.id)
-        .order("created_at", { ascending: false });
-
-      if (!refetchError && data) {
-        setProducts(data.map(mapProductRow));
-      }
-
-      setIsSubmitting(false);
-      closeFormModal();
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Something went wrong.");
-      setIsSubmitting(false);
+    if (selectedProduct) {
+      setProducts((current) =>
+        current.map((product) =>
+          product.id === selectedProduct.id
+            ? {
+                ...product,
+                name: trimmedName,
+                description: trimmedDescription,
+                price: parsedPrice,
+                stock: parsedStock,
+                imageUrl: form.imageUrl.trim() || product.imageUrl,
+                status: form.status,
+              }
+            : product,
+        ),
+      );
+    } else {
+      const newProduct: MockProduct = {
+        id: `prod-${Date.now()}`,
+        name: trimmedName,
+        description: trimmedDescription,
+        price: parsedPrice,
+        stock: parsedStock,
+        imageUrl: form.imageUrl.trim() || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80",
+        status: form.status,
+      };
+      setProducts((current) => [newProduct, ...current]);
     }
+
+    setIsSubmitting(false);
+    closeFormModal();
   };
 
-  const confirmDelete = (product: ReturnType<typeof mapProductRow>) => {
+  const confirmDelete = (product: MockProduct) => {
     setSelectedProduct(product);
     setIsDeleteOpen(true);
   };
 
-  const handleDelete = async () => {
-    if (!selectedProduct || !store) return;
-
-    await supabase
-      .from("products")
-      .delete()
-      .eq("id", selectedProduct.id)
-      .eq("store_id", store.id);
+  const handleDelete = () => {
+    if (!selectedProduct) return;
 
     setProducts((current) => current.filter((product) => product.id !== selectedProduct.id));
     setIsDeleteOpen(false);
     setSelectedProduct(null);
   };
-
-  if (storeLoading) {
-    return <p className="text-sm text-[var(--muted)]">Loading store…</p>;
-  }
-
-  if (!store) {
-    return (
-      <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
-        <p className="text-sm text-[var(--muted)]">Create a store first to manage products.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -265,87 +166,81 @@ export function ProductsDashboardClient() {
           </div>
         </div>
 
-        {error ? (
-          <p className="mt-4 text-sm text-[var(--danger)]">{error}</p>
-        ) : loading ? (
-          <p className="mt-10 text-center text-sm text-[var(--muted)]">Loading products…</p>
-        ) : (
-          <div className="mt-6 overflow-hidden rounded-[1.25rem] border border-[var(--border)]">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-[var(--border)] text-left">
-                <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+        <div className="mt-6 overflow-hidden rounded-[1.25rem] border border-[var(--border)]">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-[var(--border)] text-left">
+              <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Product</th>
+                  <th className="px-4 py-3 font-semibold">Price</th>
+                  <th className="px-4 py-3 font-semibold">Stock</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border)] bg-[var(--surface)]">
+                {filteredProducts.length === 0 ? (
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Product</th>
-                    <th className="px-4 py-3 font-semibold">Price</th>
-                    <th className="px-4 py-3 font-semibold">Stock</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
-                    <th className="px-4 py-3 font-semibold">Actions</th>
+                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-[var(--muted)]">
+                      No products match your search.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border)] bg-[var(--surface)]">
-                  {filteredProducts.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center text-sm text-[var(--muted)]">
-                        No products match your search.
+                ) : (
+                  filteredProducts.map((product) => (
+                    <tr key={product.id} className="align-middle">
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={product.imageUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80"}
+                            alt={product.name}
+                            className="h-12 w-12 rounded-[0.875rem] object-cover"
+                          />
+                          <div>
+                            <div className="font-semibold text-[var(--text)]">{product.name}</div>
+                            <div className="mt-1 text-xs text-[var(--muted)]">{product.description}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-sm font-medium text-[var(--text)]">
+                        ${product.price.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--text)]">{product.stock}</td>
+                      <td className="px-4 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            product.status === "Active"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {product.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(product)}
+                            className="rounded-[0.75rem] border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--text)] transition hover:bg-slate-50"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => confirmDelete(product)}
+                            className="rounded-[0.75rem] border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-100"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  ) : (
-                    filteredProducts.map((product) => (
-                      <tr key={product.id} className="align-middle">
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={product.imageUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80"}
-                              alt={product.name}
-                              className="h-12 w-12 rounded-[0.875rem] object-cover"
-                            />
-                            <div>
-                              <div className="font-semibold text-[var(--text)]">{product.name}</div>
-                              <div className="mt-1 text-xs text-[var(--muted)]">{product.description}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-sm font-medium text-[var(--text)]">
-                          ${product.price.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-[var(--text)]">{product.stock}</td>
-                        <td className="px-4 py-4">
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                              product.status === "Active"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-amber-100 text-amber-700"
-                            }`}
-                          >
-                            {product.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(product)}
-                              className="rounded-[0.75rem] border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--text)] transition hover:bg-slate-50"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => confirmDelete(product)}
-                              className="rounded-[0.75rem] border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-100"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
       </section>
 
       <Modal open={isFormOpen} onClose={closeFormModal} title={selectedProduct ? "Edit Product" : "Add Product"}>

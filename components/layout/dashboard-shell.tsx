@@ -12,6 +12,7 @@ import { navItems } from "@/lib/dashboard-data";
 import useAuth from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { UserProfileDropdown } from "@/components/layout/user-profile-dropdown";
 import LogoutButton from "@/components/auth/LogoutButton";
 import logoImage from "@/app/logo.png";
 
@@ -169,16 +170,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <button className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] transition hover:bg-slate-50">
                 <Bell className="h-5 w-5" />
               </button>
-              <div className="inline-flex items-center gap-3">
-                <div className="inline-flex items-center gap-3 rounded-[1.25rem] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)]">
-                  <div className="relative h-10 w-10 overflow-hidden rounded-[1rem] bg-slate-100">
-                    <Image src={logoImage} alt="Site logo" fill className="object-cover" />
-                  </div>
-                  <span>{displayName}</span>
-                </div>
-
-                <LogoutButton />
-              </div>
+              <UserProfileDropdown displayName={displayName} />
             </div>
           </header>
 

@@ -11,20 +11,19 @@ const initialForm = {
   name: "",
   description: "",
   logo: "",
-  slug: "",
-  heroTitle: "",
-  heroDescription: "",
 };
+
+type FormState = typeof initialForm;
 
 export function StoreDashboardClient() {
   const { user } = useAuth();
   const { store, loading, error, createStore } = useStore();
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState<FormState>(initialForm);
   const [submitting, setSubmitting] = useState(false);
 
   const createdStore = useMemo(() => store, [store]);
 
-  const handleChange = (field: keyof typeof initialForm, value: string) => {
+  const handleChange = (field: keyof FormState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
@@ -34,20 +33,25 @@ export function StoreDashboardClient() {
     if (!user) return;
 
     const trimmedName = form.name.trim();
-    if (!trimmedName) {
+    const trimmedDescription = form.description.trim();
+
+    if (!trimmedName || !trimmedDescription) {
       return;
     }
 
     setSubmitting(true);
 
-    const slugValue = slugify(form.slug || form.name);
+    const slugValue = slugify(trimmedName);
+    const heroTitle = `Welcome to ${trimmedName}`;
+    const heroDescription = trimmedDescription;
+
     const newStore = await createStore({
       name: trimmedName,
-      description: form.description,
+      description: trimmedDescription,
       logo: form.logo,
       slug: slugValue,
-      heroTitle: form.heroTitle || `Welcome to ${trimmedName}`,
-      heroDescription: form.heroDescription || "Discover our latest collection and shop your favorite essentials.",
+      heroTitle,
+      heroDescription,
     });
 
     setSubmitting(false);
@@ -79,70 +83,41 @@ export function StoreDashboardClient() {
           <div className="mb-6 space-y-2">
             <h2 className="text-2xl font-semibold text-[var(--text)]">Create Your Store</h2>
             <p className="text-sm text-[var(--muted)]">
-              Build a reusable storefront template with your store information and hero content.
+              Build your storefront with a few simple details.
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-medium text-[var(--text)]">Store name</span>
+              <span className="text-sm font-medium text-[var(--text)]">Store name <span className="text-[var(--danger)]">*</span></span>
               <input
                 value={form.name}
                 onChange={(event) => handleChange("name", event.target.value)}
                 className="w-full rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)]"
                 placeholder="Marva Boutique"
+                required
               />
             </label>
 
             <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-medium text-[var(--text)]">Store description</span>
+              <span className="text-sm font-medium text-[var(--text)]">Store description <span className="text-[var(--danger)]">*</span></span>
               <textarea
                 value={form.description}
                 onChange={(event) => handleChange("description", event.target.value)}
                 rows={4}
                 className="w-full rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)]"
-                placeholder="Share what makes your collection special."
+                placeholder="Tell customers what makes your store special."
+                required
               />
             </label>
 
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-[var(--text)]">Store logo / image URL</span>
+            <label className="space-y-2 md:col-span-2">
+              <span className="text-sm font-medium text-[var(--text)]">Store logo / image <span className="text-xs text-[var(--muted)]">(optional)</span></span>
               <input
                 value={form.logo}
                 onChange={(event) => handleChange("logo", event.target.value)}
                 className="w-full rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)]"
                 placeholder="https://example.com/logo.jpg"
-              />
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-[var(--text)]">Store slug</span>
-              <input
-                value={form.slug}
-                onChange={(event) => handleChange("slug", event.target.value)}
-                className="w-full rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)]"
-                placeholder="marva-boutique"
-              />
-            </label>
-
-            <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-medium text-[var(--text)]">Hero title</span>
-              <input
-                value={form.heroTitle}
-                onChange={(event) => handleChange("heroTitle", event.target.value)}
-                className="w-full rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)]"
-                placeholder="Welcome to Marva Boutique"
-              />
-            </label>
-
-            <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-medium text-[var(--text)]">Hero description</span>
-              <textarea
-                value={form.heroDescription}
-                onChange={(event) => handleChange("heroDescription", event.target.value)}
-                rows={3}
-                className="w-full rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)]"
-                placeholder="Discover our latest collection and shop your favorite essentials."
               />
             </label>
           </div>
