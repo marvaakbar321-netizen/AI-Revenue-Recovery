@@ -7,6 +7,7 @@ const statusVariants: Record<string, BadgeProps["variant"]> = {
   Failed: "danger",
   Processing: "info",
   Shipped: "default",
+  Completed: "success",
   Delivered: "success",
   Cancelled: "danger",
 };

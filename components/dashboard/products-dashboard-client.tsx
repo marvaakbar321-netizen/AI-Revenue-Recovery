@@ -9,6 +9,7 @@ import { mockProducts, type MockProduct } from "@/lib/mock-products";
 const defaultForm = {
   name: "",
   description: "",
+  category: "",
   price: "",
   stock: "",
   imageUrl: "",
@@ -20,21 +21,35 @@ type FormState = typeof defaultForm;
 export function ProductsDashboardClient() {
   const [products, setProducts] = useState<MockProduct[]>(mockProducts);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<MockProduct | null>(null);
+  const [viewProduct, setViewProduct] = useState<MockProduct | null>(null);
   const [form, setForm] = useState<FormState>(defaultForm);
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const categories = useMemo(() => {
+    const unique = Array.from(new Set(products.map((product) => product.category).filter(Boolean)));
+    return unique.sort();
+  }, [products]);
+
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return products;
-
-    return products.filter((product) =>
-      [product.name, product.description, product.status].some((value) => value.toLowerCase().includes(query)),
-    );
-  }, [products, search]);
+    return products.filter((product) => {
+      const matchesQuery =
+        !query ||
+        [product.name, product.description, product.category, product.status].some((value) =>
+          value.toLowerCase().includes(query),
+        );
+      const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
+      const matchesStatus = statusFilter === "all" || product.status === statusFilter;
+      return matchesQuery && matchesCategory && matchesStatus;
+    });
+  }, [products, search, categoryFilter, statusFilter]);
 
   const openCreateModal = () => {
     setSelectedProduct(null);
@@ -48,6 +63,7 @@ export function ProductsDashboardClient() {
     setForm({
       name: product.name,
       description: product.description,
+      category: product.category,
       price: String(product.price),
       stock: String(product.stock),
       imageUrl: product.imageUrl,
@@ -55,6 +71,16 @@ export function ProductsDashboardClient() {
     });
     setFormError("");
     setIsFormOpen(true);
+  };
+
+  const openViewModal = (product: MockProduct) => {
+    setViewProduct(product);
+    setIsViewOpen(true);
+  };
+
+  const closeViewModal = () => {
+    setIsViewOpen(false);
+    setViewProduct(null);
   };
 
   const closeFormModal = () => {
@@ -69,11 +95,12 @@ export function ProductsDashboardClient() {
 
     const trimmedName = form.name.trim();
     const trimmedDescription = form.description.trim();
+    const trimmedCategory = form.category.trim();
     const parsedPrice = Number(form.price);
     const parsedStock = Number(form.stock);
 
-    if (!trimmedName || !trimmedDescription) {
-      setFormError("Product name and description are required.");
+    if (!trimmedName || !trimmedDescription || !trimmedCategory) {
+      setFormError("Product name, description, and category are required.");
       return;
     }
 
@@ -97,6 +124,7 @@ export function ProductsDashboardClient() {
                 ...product,
                 name: trimmedName,
                 description: trimmedDescription,
+                category: trimmedCategory,
                 price: parsedPrice,
                 stock: parsedStock,
                 imageUrl: form.imageUrl.trim() || product.imageUrl,
@@ -110,6 +138,7 @@ export function ProductsDashboardClient() {
         id: `prod-${Date.now()}`,
         name: trimmedName,
         description: trimmedDescription,
+        category: trimmedCategory,
         price: parsedPrice,
         stock: parsedStock,
         imageUrl: form.imageUrl.trim() || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80",
@@ -151,7 +180,7 @@ export function ProductsDashboardClient() {
 
       <section className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3 rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-3 py-2.5 md:min-w-[280px]">
+          <div className="flex flex-1 items-center gap-3 rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-3 py-2.5 md:max-w-md">
             <span className="text-sm text-[var(--muted)]">⌕</span>
             <input
               value={search}
@@ -161,8 +190,31 @@ export function ProductsDashboardClient() {
             />
           </div>
 
-          <div className="text-sm text-[var(--muted)]">
-            {filteredProducts.length} product{filteredProducts.length === 1 ? "" : "s"}
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className="min-h-[44px] rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-2.5 text-sm text-[var(--text)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+            >
+              <option value="all">All Categories</option>
+              {categories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="min-h-[44px] rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-2.5 text-sm text-[var(--text)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+            >
+              <option value="all">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Draft">Draft</option>
+            </select>
+
+            <div className="text-sm text-[var(--muted)]">
+              {filteredProducts.length} product{filteredProducts.length === 1 ? "" : "s"}
+            </div>
           </div>
         </div>
 
@@ -171,7 +223,9 @@ export function ProductsDashboardClient() {
             <table className="min-w-full divide-y divide-[var(--border)] text-left">
               <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
                 <tr>
+                  <th className="px-4 py-3 font-semibold">Image</th>
                   <th className="px-4 py-3 font-semibold">Product</th>
+                  <th className="px-4 py-3 font-semibold">Category</th>
                   <th className="px-4 py-3 font-semibold">Price</th>
                   <th className="px-4 py-3 font-semibold">Stock</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
@@ -181,7 +235,7 @@ export function ProductsDashboardClient() {
               <tbody className="divide-y divide-[var(--border)] bg-[var(--surface)]">
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-[var(--muted)]">
+                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-[var(--muted)]">
                       No products match your search.
                     </td>
                   </tr>
@@ -189,18 +243,19 @@ export function ProductsDashboardClient() {
                   filteredProducts.map((product) => (
                     <tr key={product.id} className="align-middle">
                       <td className="px-4 py-4">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={product.imageUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80"}
-                            alt={product.name}
-                            className="h-12 w-12 rounded-[0.875rem] object-cover"
-                          />
-                          <div>
-                            <div className="font-semibold text-[var(--text)]">{product.name}</div>
-                            <div className="mt-1 text-xs text-[var(--muted)]">{product.description}</div>
-                          </div>
+                        <img
+                          src={product.imageUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80"}
+                          alt={product.name}
+                          className="h-12 w-12 rounded-[0.875rem] object-cover"
+                        />
+                      </td>
+                      <td className="px-4 py-4">
+                        <div>
+                          <div className="font-semibold text-[var(--text)]">{product.name}</div>
+                          <div className="mt-1 text-xs text-[var(--muted)]">{product.description}</div>
                         </div>
                       </td>
+                      <td className="px-4 py-4 text-sm text-[var(--text)]">{product.category}</td>
                       <td className="px-4 py-4 text-sm font-medium text-[var(--text)]">
                         ${product.price.toFixed(2)}
                       </td>
@@ -218,6 +273,13 @@ export function ProductsDashboardClient() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openViewModal(product)}
+                            className="rounded-[0.75rem] border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--text)] transition hover:bg-slate-50"
+                          >
+                            View
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEditModal(product)}
@@ -281,6 +343,16 @@ export function ProductsDashboardClient() {
                 onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
                 className="w-full rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10 placeholder:text-slate-400"
                 placeholder="Describe the product features and value."
+              />
+            </label>
+
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-[var(--text)]">Category</span>
+              <input
+                value={form.category}
+                onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
+                className="min-h-[44px] w-full rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10 placeholder:text-slate-400"
+                placeholder="Electronics"
               />
             </label>
 
@@ -363,6 +435,70 @@ export function ProductsDashboardClient() {
               Delete
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal open={isViewOpen} onClose={closeViewModal} title={viewProduct ? "Product Details" : "Product Details"}>
+        <div className="p-6">
+          {viewProduct ? (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--primary)]">Product</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-[var(--text)]">{viewProduct.name}</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeViewModal}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] transition hover:bg-slate-50"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="overflow-hidden rounded-[1.25rem] border border-[var(--border)]">
+                <img
+                  src={viewProduct.imageUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80"}
+                  alt={viewProduct.name}
+                  className="h-56 w-full object-cover"
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[1rem] border border-[var(--border)] bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Category</p>
+                  <p className="mt-1 text-sm font-semibold text-[var(--text)]">{viewProduct.category}</p>
+                </div>
+                <div className="rounded-[1rem] border border-[var(--border)] bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Status</p>
+                  <p className="mt-1 text-sm font-semibold text-[var(--text)]">{viewProduct.status}</p>
+                </div>
+                <div className="rounded-[1rem] border border-[var(--border)] bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Price</p>
+                  <p className="mt-1 text-sm font-semibold text-[var(--text)]">${viewProduct.price.toFixed(2)}</p>
+                </div>
+                <div className="rounded-[1rem] border border-[var(--border)] bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Stock</p>
+                  <p className="mt-1 text-sm font-semibold text-[var(--text)]">{viewProduct.stock}</p>
+                </div>
+              </div>
+
+              <div className="rounded-[1rem] border border-[var(--border)] bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Description</p>
+                <p className="mt-1 text-sm leading-7 text-[var(--text)]">{viewProduct.description}</p>
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+                <Button type="button" variant="secondary" onClick={closeViewModal}>
+                  Close
+                </Button>
+                <Button type="button" variant="primary" onClick={() => { closeViewModal(); openEditModal(viewProduct); }}>
+                  Edit Product
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </Modal>
     </div>
