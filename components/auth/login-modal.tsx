@@ -15,13 +15,23 @@ interface LoginModalProps {
   onClose: () => void;
 }
 
+function friendlyAuthError(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("invalid login credentials")) return "The email or password is incorrect.";
+  if (normalized.includes("user already registered")) return "An account with this email already exists. Try logging in.";
+  if (normalized.includes("email")) return "Please check the email address and try again.";
+  return "We could not complete authentication. Please try again.";
+}
+
 export function LoginModal({ open, mode = "login", onClose }: LoginModalProps) {
   const [activeMode, setActiveMode] = useState<"login" | "signup">(mode);
   const isSignUp = activeMode === "signup";
   const [fullName, setFullName] = useState("");
+  const [business, setBusiness] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [terms, setTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -30,6 +40,7 @@ export function LoginModal({ open, mode = "login", onClose }: LoginModalProps) {
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the shared auth modal when a new flow opens
       setActiveMode(mode);
       setError("");
       setMessage("");
@@ -43,8 +54,11 @@ export function LoginModal({ open, mode = "login", onClose }: LoginModalProps) {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return "Please enter a valid email.";
     if (!password) return "Password is required.";
     if (isSignUp) {
+      if (!fullName.trim()) return "Full name is required.";
+      if (!business.trim()) return "Business name is required.";
       if (password.length < 6) return "Password must be at least 6 characters.";
       if (password !== confirmPassword) return "Passwords do not match.";
+      if (!terms) return "You must accept the terms and conditions.";
     }
     return null;
   };
@@ -64,9 +78,9 @@ export function LoginModal({ open, mode = "login", onClose }: LoginModalProps) {
 
     try {
       if (isSignUp) {
-        const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+        const { data, error: signUpError } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName.trim(), business: business.trim() } } });
         if (signUpError) {
-          setError(signUpError.message);
+          setError(friendlyAuthError(signUpError.message));
           setLoading(false);
           return;
         }
@@ -87,7 +101,7 @@ export function LoginModal({ open, mode = "login", onClose }: LoginModalProps) {
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) {
-          setError(signInError.message);
+          setError(friendlyAuthError(signInError.message));
           setLoading(false);
           return;
         }
@@ -103,8 +117,8 @@ export function LoginModal({ open, mode = "login", onClose }: LoginModalProps) {
         setError("Unable to sign in.");
         setLoading(false);
       }
-    } catch (err: any) {
-      setError(err?.message ?? "An unexpected error occurred.");
+    } catch {
+      setError("We could not complete that request. Please try again.");
       setLoading(false);
     }
   };
@@ -133,7 +147,7 @@ export function LoginModal({ open, mode = "login", onClose }: LoginModalProps) {
             <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[var(--primary)]">AI Revenue Recovery</p>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text)]">{isSignUp ? "Create your account" : "Welcome back"}</h2>
             <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-[var(--muted)]">
-              {isSignUp ? "Start recovering revenue with AI-driven insights and a unified dashboard." : "Log in to continue managing your revenue recovery workflows."}
+              {isSignUp ? "Start recovering and understanding your store revenue." : "Log in to your account to continue."}
             </p>
           </div>
         </div>
@@ -151,6 +165,15 @@ export function LoginModal({ open, mode = "login", onClose }: LoginModalProps) {
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-[var(--text)]">Full name</label>
               <Input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your full name" autoComplete="name" disabled={loading} className="h-[52px] w-full rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-[var(--text)] transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
+            </div>
+          ) : null}
+
+          {isSignUp ? <label className="flex items-start gap-3 text-sm text-[var(--muted)]"><input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} disabled={loading} className="mt-1 h-4 w-4 rounded border-[var(--border)]" /><span>I agree to the Terms &amp; Conditions.</span></label> : null}
+
+          {isSignUp ? (
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-[var(--text)]">Business name</label>
+              <Input type="text" value={business} onChange={(e) => setBusiness(e.target.value)} placeholder="Your business name" autoComplete="organization" disabled={loading} className="h-[52px] w-full rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-[var(--text)] transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20" />
             </div>
           ) : null}
 
@@ -181,14 +204,14 @@ export function LoginModal({ open, mode = "login", onClose }: LoginModalProps) {
                 {isSignUp ? "Creating account..." : "Logging in..."}
               </span>
             ) : (
-              isSignUp ? "Create account" : "Login"
+              isSignUp ? "Create account" : "Log In"
             )}
           </Button>
         </form>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm text-[var(--muted)]">
           <span>{isSignUp ? "Already have an account?" : "Don't have an account?"}</span>
-          <button type="button" onClick={() => setActiveMode(isSignUp ? "login" : "signup")} className="font-semibold text-[var(--primary)] transition hover:text-[var(--primary)]">{isSignUp ? "Login" : "Sign up"}</button>
+          <button type="button" onClick={() => setActiveMode(isSignUp ? "login" : "signup")} className="font-semibold text-[var(--primary)] transition hover:text-[var(--primary)]">{isSignUp ? "Log in" : "Create an account"}</button>
         </div>
       </div>
     </Modal>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Hero } from "@/components/landing/hero";
 import { Navbar } from "@/components/landing/navbar";
 import { ProblemCard } from "@/components/landing/problem-card";
@@ -11,40 +12,34 @@ import { FAQAccordion } from "@/components/landing/faq-accordion";
 import { CTASection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
 import { LoginModal } from "@/components/auth/login-modal";
-import SignUpModal from "@/components/auth/SignUpModal";
 import { problems, steps, features, benefits, testimonials, faqs } from "@/lib/landing-data";
 
 export function LandingPageClient() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const router = useRouter();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get("login") === "1") {
-      setAuthMode("login");
+    if (params.get("login") === "1" || params.get("signup") === "1") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- open the auth flow from the legacy login query parameter
+      setAuthMode(params.get("signup") === "1" ? "signup" : "login");
       setAuthOpen(true);
       params.delete("login");
+      params.delete("signup");
       const baseUrl = `${window.location.origin}${window.location.pathname}`;
       const query = params.toString();
       window.history.replaceState({}, "", query ? `${baseUrl}?${query}` : baseUrl);
     }
   }, []);
 
-  const openLogin = () => {
-    setAuthMode("login");
-    setAuthOpen(true);
-  };
-
-  const openSignUp = () => {
-    setAuthMode("signup");
-    setAuthOpen(true);
-  };
-
+  const openLogin = () => router.push("/login");
+  const openSignUp = () => router.push("/signup");
   return (
     <div className="bg-[var(--background)] text-[var(--text)]">
-      <Navbar onOpenLogin={openLogin} onOpenSignUp={openSignUp} />
+      <Navbar onLogin={openLogin} onSignUp={openSignUp} />
       <main className="mx-auto flex min-h-screen max-w-[1400px] flex-col gap-20 px-4 py-10 sm:px-6 xl:px-8">
         <Hero onOpenSignUp={openSignUp} />
 
@@ -228,7 +223,6 @@ export function LandingPageClient() {
       </main>
       <Footer />
       <LoginModal open={authOpen && authMode === "login"} mode={authMode} onClose={() => setAuthOpen(false)} />
-      <SignUpModal open={authOpen && authMode === "signup"} onClose={() => setAuthOpen(false)} onOpenLogin={() => { setAuthMode("login"); setAuthOpen(true); }} />
     </div>
   );
 }

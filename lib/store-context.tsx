@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState, createContext, useContext, useRef } from "react";
+import { useEffect, useState, createContext, useContext } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Store } from "@/lib/store-utils";
-import { createMockStore } from "@/lib/mock-store-data";
 
 type StoreContextValue = {
   store: Store | null;
@@ -32,8 +31,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const mountedRef = useRef(false);
-
   const refreshStore = async () => {
     setLoading(true);
     setError(null);
@@ -101,6 +98,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
 
+      const { data: existingStore, error: existingError } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("owner_id", session.user.id)
+        .maybeSingle();
+
+      if (existingError) {
+        setError(existingError.message);
+        return null;
+      }
+
+      if (existingStore) {
+        setStore(existingStore as Store);
+        return existingStore as Store;
+      }
+
       const { data, error: insertError } = await supabase
         .from("stores")
         .insert({
@@ -116,67 +129,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (insertError) {
-        if (isMissingStoreTableError(insertError)) {
-          const mockStore = createMockStore({
-            name: input.name,
-            description: input.description,
-            logo: input.logo,
-            slug: input.slug,
-            heroTitle: input.heroTitle,
-            heroDescription: input.heroDescription,
-          });
-          const fallbackStore: Store = {
-            id: mockStore.id,
-            owner_id: session.user.id,
-            name: mockStore.name,
-            slug: mockStore.slug,
-            description: mockStore.description,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          setStore(fallbackStore);
-          return fallbackStore;
-        }
-        setError(insertError.message);
+        if (isMissingStoreTableError(insertError)) setError("Store setup is unavailable until the Supabase migration is applied.");
+        else if (insertError.code === "23505") setError("You already own a store. Each admin can have only one store.");
+        else setError(insertError.message);
         return null;
       }
 
       setStore(data as Store);
       return data as Store;
     } catch (err) {
-      if (isMissingStoreTableError(err)) {
-        const mockStore = createMockStore({
-          name: input.name,
-          description: input.description,
-          logo: input.logo,
-          slug: input.slug,
-          heroTitle: input.heroTitle,
-          heroDescription: input.heroDescription,
-        });
-        const fallbackStore: Store = {
-          id: mockStore.id,
-          owner_id: "demo-owner",
-          name: mockStore.name,
-          slug: mockStore.slug,
-          description: mockStore.description,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setStore(fallbackStore);
-        return fallbackStore;
-      }
       setError(err instanceof Error ? err.message : "Failed to create store");
       return null;
     }
   };
 
   useEffect(() => {
-    mountedRef.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
     refreshStore();
-    return () => {
-      mountedRef.current = false;
-    };
   }, []);
 
   return (

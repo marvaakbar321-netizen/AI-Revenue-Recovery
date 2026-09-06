@@ -1,24 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { SafeImage } from "@/components/ui/safe-image";
 import { useStoreCart } from "@/hooks/useStoreCart";
-import { addMockOrder, getMockOrders, getMockStoreBySlug, getMockStoreById } from "@/lib/mock-store-data";
+import { supabase } from "@/lib/supabase";
 import { formatCurrency } from "@/lib/store-utils";
 
 export function CheckoutPageClient({ slug }: { slug: string }) {
   const router = useRouter();
-  const { items, subtotal, updateQuantity, removeItem, clearCart } = useStoreCart();
+  const { subtotal, updateQuantity, removeItem, clearCart, getItemsByStore } = useStoreCart();
 
-  const store = useMemo(() => {
-    const found = getMockStoreBySlug(slug);
-    return found ? { id: found.id, name: found.name, slug: found.slug } : null;
-  }, [slug]);
+  const [store, setStore] = useState<{ id: string; name: string; slug: string } | null>(null);
+  const [storeLoading, setStoreLoading] = useState(true);
+
+  const storeItems = useMemo(() => (store ? getItemsByStore(store.id) : []), [store, getItemsByStore]);
+  const storeSubtotal = useMemo(() => storeItems.reduce((sum, line) => sum + Number(line.total ?? 0), 0), [storeItems]);
 
   const shipping = 0;
-  const total = subtotal + shipping;
+  const total = storeSubtotal + shipping;
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -30,10 +32,24 @@ export function CheckoutPageClient({ slug }: { slug: string }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const itemCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
+  useEffect(() => {
+    let active = true;
+    const loadStore = async () => {
+      setStoreLoading(true);
+      const { data, error: storeError } = await supabase.from("stores").select("id, name, slug").eq("slug", slug).maybeSingle();
+      if (!active) return;
+      if (storeError) setError(storeError.message);
+      setStore(data ?? null);
+      setStoreLoading(false);
+    };
+    void loadStore();
+    return () => { active = false; };
+  }, [slug]);
 
-  const handlePlaceOrder = () => {
-    if (!items.length) {
+  const itemCount = useMemo(() => storeItems.reduce((sum, item) => sum + item.quantity, 0), [storeItems]);
+
+  const handlePlaceOrder = async () => {
+    if (!storeItems.length) {
       setError("Your cart is empty.");
       return;
     }
@@ -51,40 +67,30 @@ export function CheckoutPageClient({ slug }: { slug: string }) {
     setSubmitting(true);
     setError("");
 
-    const storeData = getMockStoreById(store.id) ?? { name: store.name };
-    const orderId = `ORD-${String(getMockOrders().length + 1001).padStart(4, "0")}`;
+    try {
+      const { data: createdOrderId, error: orderError } = await supabase.rpc("create_store_order", {
+        p_store_id: store.id,
+        p_customer_name: customerName.trim(),
+        p_customer_email: customerEmail.trim().toLowerCase(),
+        p_customer_phone: customerPhone.trim(),
+        p_customer_address: `${customerAddress.trim()}, ${customerCity.trim()}, ${customerPostalCode.trim()}, ${customerCountry.trim()}`,
+        p_items: storeItems.map((item) => ({ product_id: item.productId, quantity: item.quantity })),
+      });
 
-    const orderItems = items.map((item) => ({
-      id: `line-${Date.now()}-${item.productId}`,
-      productId: item.productId,
-      productName: item.product.name,
-      quantity: item.quantity,
-      unitPrice: Number(item.unitPrice ?? item.product.price ?? 0),
-      total: Number(item.total ?? 0),
-      image: item.product.image ?? item.product.image_url ?? "",
-    }));
+      if (orderError || !createdOrderId) throw new Error(orderError?.message ?? "Failed to create order.");
 
-    const order = {
-      id: orderId,
-      storeId: store.id,
-      storeName: storeData.name,
-      customerName: customerName.trim(),
-      customerEmail: customerEmail.trim().toLowerCase(),
-      customerPhone: customerPhone.trim() || "(555) 000-0000",
-      customerAddress: `${customerAddress.trim()}, ${customerCity.trim()}, ${customerPostalCode.trim()}, ${customerCountry.trim()}`,
-      items: orderItems,
-      subtotal,
-      shipping,
-      total,
-      status: "Paid",
-      createdAt: new Date().toISOString(),
-    };
-
-    addMockOrder(order);
-    clearCart();
-    setSubmitting(false);
-    setSuccess(true);
+      clearCart();
+      setSuccess(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to place order.");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (storeLoading) {
+    return <div className="mx-auto max-w-3xl px-4 py-10 text-sm text-[var(--muted)]">Loading store checkout…</div>;
+  }
 
   if (!store) {
     return (
@@ -116,7 +122,7 @@ export function CheckoutPageClient({ slug }: { slug: string }) {
     );
   }
 
-  if (items.length === 0) {
+  if (storeItems.length === 0) {
     return (
       <div className="mx-auto max-w-3xl space-y-6 px-4 py-10">
         <div className="space-y-2">
@@ -247,10 +253,10 @@ export function CheckoutPageClient({ slug }: { slug: string }) {
             <p className="mt-1 text-sm text-[var(--muted)]">{itemCount} item{itemCount === 1 ? "" : "s"} in your cart</p>
 
             <div className="mt-5 space-y-3">
-              {items.map((item) => (
+              {storeItems.map((item) => (
                 <div key={item.productId} className="rounded-[1rem] border border-[var(--border)] bg-slate-50 p-3">
                   <div className="flex items-center gap-3">
-                    <img src={item.product.image} alt={item.product.name} className="h-14 w-14 rounded-[0.75rem] object-cover" />
+                    <SafeImage src={item.product.image} alt={item.product.name} className="h-14 w-14 rounded-[0.75rem] object-cover" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-[var(--text)]">{item.product.name}</p>
                       <p className="text-xs text-[var(--muted)]">{formatCurrency(item.unitPrice)} each</p>

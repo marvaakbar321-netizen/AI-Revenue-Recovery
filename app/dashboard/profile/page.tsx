@@ -5,16 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import useAuth from "@/hooks/useAuth";
-
-function getLocalDemoUser() {
-  try {
-    const raw = typeof window !== "undefined" ? localStorage.getItem("airevenue_demo_user") : null;
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (err) {
-    return null;
-  }
-}
+import { supabase } from "@/lib/supabase";
 
 export default function ProfilePage() {
   const { user: authUser } = useAuth();
@@ -27,16 +18,8 @@ export default function ProfilePage() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const local = getLocalDemoUser();
-    if (local) {
-      setFullName(local.fullName || local.full_name || "");
-      setBusiness(local.business || "");
-      setEmail(local.email || "");
-      return;
-    }
-
-    // Otherwise, populate from auth user if present
     if (authUser) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate profile fields from Supabase Auth
       setFullName(authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email || "");
       setBusiness(authUser.user_metadata?.business || "");
       setEmail(authUser.email || "");
@@ -52,17 +35,17 @@ export default function ProfilePage() {
 
     setLoading(true);
     try {
-      const payload = { fullName, business, email, updatedAt: new Date().toISOString() };
-      try {
-        localStorage.setItem("airevenue_demo_user", JSON.stringify(payload));
-      } catch (err) {}
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { ...authUser?.user_metadata, full_name: fullName.trim(), business: business.trim() },
+      });
+      if (updateError) throw updateError;
 
       setMessage("Profile saved.");
       setLoading(false);
       setTimeout(() => setMessage(null), 2500);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setLoading(false);
-      setMessage(err?.message ?? "Unable to save profile.");
+      setMessage(err instanceof Error ? err.message : "Unable to save profile.");
     }
   };
 
@@ -91,7 +74,7 @@ export default function ProfilePage() {
 
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save profile"}</Button>
-          <button type="button" className="text-sm text-[var(--muted)]" onClick={() => { localStorage.removeItem("airevenue_demo_user"); router.push("/"); }}>Delete demo profile</button>
+          <button type="button" className="text-sm text-[var(--muted)]" onClick={() => router.push("/s")}>Back to landing page</button>
         </div>
 
         {message ? <div className="text-sm text-[var(--muted)]">{message}</div> : null}

@@ -4,6 +4,18 @@ export type Store = {
   name: string;
   slug: string;
   description: string;
+  logo?: string | null;
+  hero_title?: string | null;
+  hero_description?: string | null;
+  banner?: string | null;
+  category?: string | null;
+  owner?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  currency?: string | null;
+  shipping?: string | null;
+  status?: string | null;
   created_at: string;
   updated_at: string;
   products?: Array<{
@@ -67,6 +79,17 @@ export type OrderItem = {
 
 export const FALLBACK_PRODUCT_IMAGE =
   "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=80";
+
+export function isValidImageUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return /^(https?:)?\/\//i.test(trimmed) || trimmed.startsWith("data:") || trimmed.startsWith("/");
+}
+
+export function safeImageUrl(value: unknown, fallback: string = FALLBACK_PRODUCT_IMAGE): string {
+  return isValidImageUrl(value) ? (value as string) : fallback;
+}
 
 export function formatCurrency(amount: number | string) {
   const numericValue = Number(amount ?? 0);

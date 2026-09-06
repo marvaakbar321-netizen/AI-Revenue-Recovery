@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { supabase } from "@/lib/supabase";
 
 interface SignUpModalProps {
   open: boolean;
@@ -24,6 +25,14 @@ function passwordStrength(pw: string) {
   return score; // 0..4
 }
 
+function friendlySignupError(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("already registered") || normalized.includes("already exists")) return "An account with this email already exists. Please sign in instead.";
+  if (normalized.includes("email")) return "Please enter a valid email address.";
+  if (normalized.includes("password")) return "Please choose a stronger password and try again.";
+  return "We could not create your account. Please try again.";
+}
+
 export function SignUpModal({ open, onClose, onOpenLogin }: SignUpModalProps) {
   const [fullName, setFullName] = useState("");
   const [business, setBusiness] = useState("");
@@ -38,6 +47,7 @@ export function SignUpModal({ open, onClose, onOpenLogin }: SignUpModalProps) {
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the form state when the modal opens
       setError(null);
       setSuccess(false);
       setLoading(false);
@@ -60,22 +70,35 @@ export function SignUpModal({ open, onClose, onOpenLogin }: SignUpModalProps) {
 
     setLoading(true);
 
-    // Simulate network delay
     try {
-      await new Promise((res) => setTimeout(res, 900));
-
-      const dummy = {
-        fullName,
-        business,
-        email,
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
         password,
-        createdAt: new Date().toISOString(),
-      };
+        options: {
+          data: {
+            full_name: fullName.trim(),
+            business: business.trim(),
+          },
+        },
+      });
 
-      try {
-        localStorage.setItem("airevenue_demo_user", JSON.stringify(dummy));
-      } catch (err) {
-        // ignore storage errors
+      if (signupError || !data.user) {
+        setError(friendlySignupError(signupError?.message ?? "Unable to create account."));
+        setLoading(false);
+        return;
+      }
+
+      const { error: profileError } = await supabase.from("profiles").insert({
+        auth_id: data.user.id,
+        full_name: fullName.trim(),
+        business_name: business.trim(),
+        email: email.trim().toLowerCase(),
+      });
+
+      if (profileError) {
+        setError("Your account was created, but we could not finish setting up your profile. Please try again.");
+        setLoading(false);
+        return;
       }
 
       setSuccess(true);
@@ -86,8 +109,8 @@ export function SignUpModal({ open, onClose, onOpenLogin }: SignUpModalProps) {
         onClose();
         onOpenLogin?.();
       }, 900);
-    } catch (err: any) {
-      setError(err?.message ?? "An unexpected error occurred.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? friendlySignupError(err.message) : "We could not create your account. Please try again.");
       setLoading(false);
     }
   };

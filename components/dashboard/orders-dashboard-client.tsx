@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import useAuth from "@/hooks/useAuth";
-import { getMockOrders, type MockOrder } from "@/lib/mock-store-data";
+import { useOrders, type OrderRow } from "@/hooks/useOrders";
 import { formatCurrency } from "@/lib/store-utils";
 import { OrderDetailsDrawer } from "@/components/dashboard/order-details-drawer";
 import { StatusBadge } from "@/components/dashboard/status-badge";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 
 const STATUS_OPTIONS = ["All", "Pending", "Paid", "Processing", "Shipped", "Completed", "Cancelled"] as const;
 
-type OrderRow = {
+type OrdersTableRow = {
   id: string;
   customer: string;
   email: string;
@@ -24,24 +24,10 @@ type OrderRow = {
 
 export function OrdersDashboardClient() {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<MockOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<MockOrder | null>(null);
+  const { orders, loading, error, refresh } = useOrders();
+  const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
-
-  useEffect(() => {
-    if (!user) return;
-
-    const loadOrders = () => {
-      setLoading(true);
-      const mockOrders = getMockOrders();
-      setOrders(mockOrders);
-      setLoading(false);
-    };
-
-    loadOrders();
-  }, [user]);
 
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -49,22 +35,22 @@ export function OrdersDashboardClient() {
       const matchesQuery =
         !query ||
         order.id.toLowerCase().includes(query) ||
-        order.customerName.toLowerCase().includes(query) ||
-        order.customerEmail.toLowerCase().includes(query);
+        order.customer_name.toLowerCase().includes(query) ||
+        order.customer_email.toLowerCase().includes(query);
       const matchesStatus = statusFilter === "All" || order.status === statusFilter;
       return matchesQuery && matchesStatus;
     });
   }, [orders, search, statusFilter]);
 
-  const orderRows: OrderRow[] = filteredOrders.map((order) => {
-    const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
-    const productNames = order.items.map((item) => item.productName).join(", ");
+  const orderRows: OrdersTableRow[] = filteredOrders.map((order) => {
+    const itemCount = order.order_items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
+    const productNames = order.order_items?.map((item) => item.product_name).join(", ") ?? "";
     return {
       id: order.id,
-      customer: order.customerName,
-      email: order.customerEmail,
+      customer: order.customer_name,
+      email: order.customer_email,
       items: productNames,
-      date: new Date(order.createdAt).toLocaleDateString("en-US", {
+      date: new Date(order.created_at).toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
         day: "numeric",
@@ -83,10 +69,14 @@ export function OrdersDashboardClient() {
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">Orders</p>
           <h1 className="mt-2 text-3xl font-semibold text-[var(--text)]">Recent orders</h1>
+          {error ? <p className="mt-2 text-sm text-[var(--danger)]">{error}</p> : null}
         </div>
-        <Link href="/store/checkout">
-          <Button variant="primary">New Order</Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Button variant="secondary" onClick={refresh}>Refresh</Button>
+          <Link href="/store/checkout">
+            <Button variant="primary">New Order</Button>
+          </Link>
+        </div>
       </section>
 
       <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">

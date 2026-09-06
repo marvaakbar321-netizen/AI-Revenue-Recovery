@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { formatCurrency } from "@/lib/store-utils";
-import type { MockOrder } from "@/lib/mock-store-data";
+import type { OrderRow } from "@/hooks/useOrders";
 
 type OrderDetailsDrawerProps = {
-  order?: MockOrder | null;
+  order?: OrderRow | null;
   open?: boolean;
   onClose?: () => void;
 };
@@ -35,11 +35,13 @@ export function OrderDetailsDrawer({ order, open, onClose }: OrderDetailsDrawerP
 
   if (!drawerOpen || !order) return null;
 
-  const orderDate = new Date(order.createdAt).toLocaleDateString("en-US", {
+  const orderDate = new Date(order.created_at).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
+
+  const items = order.order_items ?? [];
 
   return (
     <Fragment>
@@ -66,9 +68,9 @@ export function OrderDetailsDrawer({ order, open, onClose }: OrderDetailsDrawerP
                   <CardTitle>Customer</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <p className="text-sm font-semibold text-[var(--text)]">{order.customerName}</p>
-                  <p className="text-sm text-[var(--muted)]">{order.customerEmail}</p>
-                  <p className="text-sm text-[var(--muted)]">{order.customerPhone}</p>
+                  <p className="text-sm font-semibold text-[var(--text)]">{order.customer_name}</p>
+                  <p className="text-sm text-[var(--muted)]">{order.customer_email}</p>
+                  <p className="text-sm text-[var(--muted)]">{order.customer_phone || "—"}</p>
                 </CardContent>
               </Card>
               <Card className="border border-[var(--border)]">
@@ -78,7 +80,7 @@ export function OrderDetailsDrawer({ order, open, onClose }: OrderDetailsDrawerP
                 <CardContent className="space-y-3">
                   <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
                     <MapPin className="h-4.5 w-4.5" />
-                    <span>{order.customerAddress}</span>
+                    <span>{order.customer_address || "—"}</span>
                   </div>
                   <p className="text-sm text-[var(--muted)]">Order date: {orderDate}</p>
                 </CardContent>
@@ -91,15 +93,15 @@ export function OrderDetailsDrawer({ order, open, onClose }: OrderDetailsDrawerP
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {order.items.map((item) => (
+                  {items.map((item) => (
                     <div key={item.id} className="flex items-center justify-between gap-4 rounded-[1rem] bg-slate-50 px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-[0.75rem] bg-purple-50 text-[var(--primary)]">
                           <Package className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-[var(--text)]">{item.productName}</p>
-                          <p className="text-xs text-[var(--muted)]">Qty: {item.quantity} × {formatCurrency(item.unitPrice)}</p>
+                          <p className="text-sm font-semibold text-[var(--text)]">{item.product_name}</p>
+                          <p className="text-xs text-[var(--muted)]">Qty: {item.quantity} × {formatCurrency(item.unit_price)}</p>
                         </div>
                       </div>
                       <p className="text-sm font-semibold text-[var(--text)]">{formatCurrency(item.total)}</p>

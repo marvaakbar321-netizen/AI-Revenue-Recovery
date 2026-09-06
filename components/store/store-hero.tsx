@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { SafeImage } from "@/components/ui/safe-image";
 
 export function StoreHero({
   store,
@@ -27,7 +28,7 @@ export function StoreHero({
 
         <div className="relative min-h-[260px] overflow-hidden rounded-[1.5rem] border border-[var(--border)] bg-slate-100 shadow-inner">
           {store.logo ? (
-            <img src={store.logo} alt={store.name} className="h-full w-full object-cover" />
+            <SafeImage src={store.logo} alt={store.name} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full items-center justify-center text-4xl font-semibold text-[var(--primary)]">{store.name.slice(0, 2).toUpperCase()}</div>
           )}

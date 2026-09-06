@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { SafeImage } from "@/components/ui/safe-image";
 import { formatCurrency } from "@/lib/store-utils";
 
 export type ProductCardData = {
@@ -38,7 +39,7 @@ export function ProductCard({
   return (
     <article className="group overflow-hidden rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
       <Link href={`/store/${slug}/product/${product.id}`} className="block overflow-hidden">
-        <img src={product.image} alt={product.name} className="h-56 w-full object-cover transition duration-300 group-hover:scale-105" />
+        <SafeImage src={product.image} alt={product.name} className="h-56 w-full object-cover transition duration-300 group-hover:scale-105" />
       </Link>
 
       <div className="space-y-4 p-5">

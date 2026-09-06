@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect -- client-side localStorage/mock store data loading after hydration */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -54,7 +55,6 @@ export function StorePageClient({ slug }: { slug: string }) {
         })),
       );
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- load client-only localStorage data after hydration
   }, [slug]);
 
   if (!store) {

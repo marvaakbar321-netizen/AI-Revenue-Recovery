@@ -2,14 +2,17 @@
 
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { SafeImage } from "@/components/ui/safe-image";
 import { useStoreCart } from "@/hooks/useStoreCart";
 import { formatCurrency } from "@/lib/store-utils";
 import type { ProductCardData } from "@/components/store/product-card";
 
 export function CustomerProductCard({
   product,
+  slug,
 }: {
   product: ProductCardData;
+  slug?: string;
 }) {
   const router = useRouter();
   const { addItem } = useStoreCart();
@@ -24,7 +27,8 @@ export function CustomerProductCard({
       },
       1,
     );
-    router.push(`/store/checkout?product=${product.id}`);
+    const targetSlug = slug ?? product.storeId ?? "store";
+    router.push(`/store/${targetSlug}/checkout?product=${product.id}`);
   };
 
   const category = product.category ?? "Product";
@@ -34,7 +38,7 @@ export function CustomerProductCard({
   return (
     <article className="group overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
       <div className="relative block overflow-hidden">
-        <img src={product.image} alt={product.name} className="h-60 w-full object-cover transition duration-300 group-hover:scale-105" />
+        <SafeImage src={product.image} alt={product.name} className="h-60 w-full object-cover transition duration-300 group-hover:scale-105" />
         <div className="absolute left-3 top-3">
           <span className="rounded-full bg-purple-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-purple-700">
             {category}

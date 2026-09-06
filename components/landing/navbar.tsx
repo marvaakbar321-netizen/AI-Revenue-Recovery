@@ -8,12 +8,16 @@ import { landingNav } from "@/lib/landing-data";
 import logoImage from "@/app/logo.png";
 
 interface NavbarProps {
-  onOpenLogin: () => void;
-  onOpenSignUp: () => void;
+  onLogin: () => void;
+  onSignUp: () => void;
 }
 
-export function Navbar({ onOpenLogin, onOpenSignUp }: NavbarProps) {
+export function Navbar({ onLogin, onSignUp }: NavbarProps) {
   const [open, setOpen] = useState(false);
+  const runMobileAction = (action: () => void) => {
+    setOpen(false);
+    action();
+  };
 
   return (
     <div className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/95 backdrop-blur-xl">
@@ -37,13 +41,9 @@ export function Navbar({ onOpenLogin, onOpenSignUp }: NavbarProps) {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <button type="button" onClick={onOpenSignUp} className="text-sm font-semibold text-[var(--text)] transition hover:text-[var(--primary)]">
-            Sign Up
-          </button>
-          <button type="button" onClick={onOpenLogin} className="text-sm font-semibold text-[var(--text)] transition hover:text-[var(--primary)]">
-            Login
-          </button>
-          <Button variant="primary" onClick={onOpenSignUp}>Get Started</Button>
+          <button type="button" onClick={onLogin} className="text-sm font-semibold text-[var(--text)] transition hover:text-[var(--primary)]">Log In</button>
+          <button type="button" onClick={onSignUp} className="text-sm font-semibold text-[var(--text)] transition hover:text-[var(--primary)]">Sign Up</button>
+          <Button variant="primary" onClick={onSignUp}>Get Started</Button>
         </div>
 
         <button className="inline-flex items-center justify-center rounded-[1rem] border border-[var(--border)] bg-[var(--surface)] p-3 text-[var(--text)] transition hover:bg-slate-50 md:hidden" onClick={() => setOpen(!open)}>
@@ -59,10 +59,9 @@ export function Navbar({ onOpenLogin, onOpenSignUp }: NavbarProps) {
                 {item.label}
               </a>
             ))}
-            <button type="button" onClick={onOpenLogin} className="block w-full rounded-[1rem] px-4 py-3 text-left text-sm font-semibold text-[var(--text)] transition hover:bg-slate-50">
-              Login
-            </button>
-            <Button className="w-full" onClick={onOpenSignUp}>Get Started</Button>
+            <button type="button" onClick={() => runMobileAction(onLogin)} className="block w-full rounded-[1rem] px-4 py-3 text-left text-sm font-semibold text-[var(--text)] transition hover:bg-slate-50">Log In</button>
+            <button type="button" onClick={() => runMobileAction(onSignUp)} className="block w-full rounded-[1rem] px-4 py-3 text-left text-sm font-semibold text-[var(--text)] transition hover:bg-slate-50">Sign Up</button>
+            <Button className="w-full" onClick={() => runMobileAction(onSignUp)}>Get Started</Button>
           </div>
         </div>
       ) : null}

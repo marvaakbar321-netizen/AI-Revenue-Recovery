@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { SafeImage } from "@/components/ui/safe-image";
 import { formatCurrency } from "@/lib/store-utils";
 
 export type CartItemRow = {
@@ -56,7 +57,7 @@ export function Cart({
             items.map((item) => (
               <div key={item.productId} className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <img src={item.product.image} alt={item.product.name} className="h-24 w-24 rounded-[1rem] object-cover" />
+                  <SafeImage src={item.product.image} alt={item.product.name} className="h-24 w-24 rounded-[1rem] object-cover" />
                   <div className="flex-1">
                     <div className="flex items-start justify-between gap-3">
                       <div>

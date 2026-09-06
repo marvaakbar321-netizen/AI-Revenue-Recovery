@@ -1,29 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import useAuth from "@/hooks/useAuth";
-import { getMockOrders, getMockRevenueTotal } from "@/lib/mock-store-data";
+import { useOrders } from "@/hooks/useOrders";
+import { useRevenueMetrics } from "@/hooks/useRevenueMetrics";
 import { formatCurrency } from "@/lib/store-utils";
 
 export function RevenueDashboardClient() {
   const { user } = useAuth();
-  const [revenue, setRevenue] = useState(0);
-  const [ordersCount, setOrdersCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) return;
-
-    const loadRevenue = () => {
-      setLoading(true);
-      const orders = getMockOrders();
-      setRevenue(getMockRevenueTotal());
-      setOrdersCount(orders.length);
-      setLoading(false);
-    };
-
-    loadRevenue();
-  }, [user]);
+  const { orders, loading, error } = useOrders();
+  const metrics = useRevenueMetrics(orders);
 
   if (!user) return null;
 
@@ -33,6 +19,7 @@ export function RevenueDashboardClient() {
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">Revenue</p>
           <h1 className="mt-2 text-3xl font-semibold text-[var(--text)]">Store revenue</h1>
+          {error ? <p className="mt-2 text-sm text-[var(--danger)]">{error}</p> : null}
         </div>
       </section>
 
@@ -40,13 +27,23 @@ export function RevenueDashboardClient() {
         <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
           <p className="text-sm text-[var(--muted)]">Total revenue</p>
           <p className="mt-3 text-4xl font-semibold text-[var(--text)]">
-            {loading ? "…" : formatCurrency(revenue)}
+            {loading ? "…" : formatCurrency(metrics.totalRevenue)}
           </p>
         </div>
 
         <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
           <p className="text-sm text-[var(--muted)]">Order count</p>
-          <p className="mt-3 text-4xl font-semibold text-[var(--text)]">{loading ? "…" : ordersCount}</p>
+          <p className="mt-3 text-4xl font-semibold text-[var(--text)]">{loading ? "…" : orders.length}</p>
+        </div>
+
+        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+          <p className="text-sm text-[var(--muted)]">Average order value</p>
+          <p className="mt-3 text-4xl font-semibold text-[var(--text)]">{loading ? "…" : formatCurrency(metrics.averageOrderValue)}</p>
+        </div>
+
+        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+          <p className="text-sm text-[var(--muted)]">Completed revenue</p>
+          <p className="mt-3 text-4xl font-semibold text-[var(--text)]">{loading ? "…" : formatCurrency(metrics.completedRevenue)}</p>
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect -- client-side localStorage cart hydration after mount */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -19,6 +20,14 @@ export type CartLine = {
 
 const CART_STORAGE_KEY = "ai-revenue-recovery-cart";
 
+function normalizeCartProduct(product: CartProduct): CartProduct {
+  return {
+    ...product,
+    image: product.image ?? product.image_url ?? "",
+    storeId: product.storeId ?? product.store_id,
+  };
+}
+
 export function useStoreCart() {
   const [items, setItems] = useState<CartLine[]>([]);
 
@@ -31,7 +40,7 @@ export function useStoreCart() {
 
       const parsed = JSON.parse(saved) as CartLine[];
       if (Array.isArray(parsed)) {
-        setItems(parsed);
+        setItems(parsed.map((line) => ({ ...line, product: normalizeCartProduct(line.product) })));
       }
     } catch (error) {
       console.warn("Failed to read cart from local storage", error);
@@ -44,22 +53,24 @@ export function useStoreCart() {
   }, [items]);
 
   const addItem = (product: CartProduct, quantity = 1) => {
+    const normalized = normalizeCartProduct(product);
     setItems((current) => {
-      const item = current.find((line) => line.productId === product.id);
-      const stockLimit = Number(product.stock ?? 0) || 0;
+      const item = current.find((line) => line.productId === normalized.id);
+      const stockLimit = Number(normalized.stock ?? 0) || 0;
       const delta = Number(quantity) || 0;
 
       if (item) {
         const updatedQuantity = Math.min(item.quantity + delta, stockLimit || item.quantity + delta);
         if (updatedQuantity <= 0) {
-          return current.filter((line) => line.productId !== product.id);
+          return current.filter((line) => line.productId !== normalized.id);
         }
 
-        const nextUnitPrice = Number(product.price ?? 0);
+        const nextUnitPrice = Number(normalized.price ?? 0);
         return current.map((line) =>
-          line.productId === product.id
+          line.productId === normalized.id
             ? {
                 ...line,
+                product: normalized,
                 quantity: updatedQuantity,
                 unitPrice: nextUnitPrice,
                 total: nextUnitPrice * updatedQuantity,
@@ -70,13 +81,13 @@ export function useStoreCart() {
 
       if (delta <= 0) return current;
 
-      const unitPrice = Number(product.price ?? 0);
+      const unitPrice = Number(normalized.price ?? 0);
       const quantityToAdd = Math.min(Math.max(delta, 1), stockLimit || 1);
       return [
         ...current,
         {
-          productId: product.id,
-          product: { ...product, image: product.image ?? product.image_url ?? "" },
+          productId: normalized.id,
+          product: normalized,
           quantity: quantityToAdd,
           unitPrice,
           total: unitPrice * quantityToAdd,
@@ -112,6 +123,10 @@ export function useStoreCart() {
 
   const clearCart = () => setItems([]);
 
+  const getItemsByStore = (storeId: string) => {
+    return items.filter((line) => line.product.storeId === storeId || line.product.store_id === storeId);
+  };
+
   const subtotal = useMemo(
     () => items.reduce((sum, line) => sum + Number(line.total ?? 0), 0),
     [items],
@@ -130,5 +145,6 @@ export function useStoreCart() {
     updateQuantity,
     removeItem,
     clearCart,
+    getItemsByStore,
   };
 }

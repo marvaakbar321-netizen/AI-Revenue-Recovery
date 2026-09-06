@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
@@ -16,36 +16,16 @@ import { UserProfileDropdown } from "@/components/layout/user-profile-dropdown";
 import LogoutButton from "@/components/auth/LogoutButton";
 import logoImage from "@/app/logo.png";
 
-// fallback user when not signed in via supabase
-function getLocalDemoUser() {
-  try {
-    const raw = typeof window !== "undefined" ? localStorage.getItem("airevenue_demo_user") : null;
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (err) {
-    return null;
-  }
-}
-
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [mountedLocalUser, setMountedLocalUser] = useState<any>(null);
   const router = useRouter();
   const { user: authUser } = useAuth();
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setMountedLocalUser(getLocalDemoUser());
-  }, []);
 
   const displayName =
     authUser?.user_metadata?.full_name ||
     authUser?.user_metadata?.name ||
     authUser?.email?.split("@")[0] ||
-    mountedLocalUser?.fullName ||
-    mountedLocalUser?.full_name ||
-    mountedLocalUser?.email?.split("@")[0] ||
     "User";
 
   return (

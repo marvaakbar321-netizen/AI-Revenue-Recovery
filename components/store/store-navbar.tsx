@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { useStoreCart } from "@/hooks/useStoreCart";
+import { SafeImage } from "@/components/ui/safe-image";
 
 export function StoreNavbar({
   store,
@@ -17,7 +18,7 @@ export function StoreNavbar({
         <Link href={`/store/${store.slug}`} className="flex items-center gap-3 min-w-0">
           <div className="relative h-10 w-10 overflow-hidden rounded-[0.9rem] border border-[var(--border)] bg-slate-100">
             {store.logo ? (
-              <img src={store.logo} alt={store.name} className="h-full w-full object-cover" />
+              <SafeImage src={store.logo} alt={store.name} className="h-full w-full object-cover" />
             ) : null}
           </div>
           <div className="min-w-0">

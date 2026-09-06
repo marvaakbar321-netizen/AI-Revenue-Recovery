@@ -20,6 +20,15 @@ export type MockStore = {
   slug: string;
   heroTitle: string;
   heroDescription: string;
+  banner?: string;
+  category?: string;
+  owner?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  currency?: string;
+  shipping?: string;
+  status?: string;
   products: MockStoreProduct[];
 };
 
@@ -56,11 +65,11 @@ const fallbackStoreProducts: MockStoreProduct[] = [
   {
     id: "prod-headphones",
     storeId: "store-tech",
-    name: "Wireless Headphones",
-    description: "Premium wireless headphones with deep bass and all-day comfort.",
+    name: "Premium Wireless Headphones",
+    description: "Enjoy clear, immersive sound with these premium wireless headphones. Designed with comfortable ear cushions, long battery life, and Bluetooth connectivity, they are perfect for music, work, travel, and everyday use.",
     price: 79.99,
     image: "https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=900&q=80",
-    stock: 24,
+    stock: 25,
     active: true,
   },
   {
@@ -74,13 +83,33 @@ const fallbackStoreProducts: MockStoreProduct[] = [
     active: true,
   },
   {
-    id: "prod-shirt",
+    id: "prod-speaker",
     storeId: "store-tech",
-    name: "Classic T-Shirt",
-    description: "A soft premium cotton tee built for daily wear and layering.",
-    price: 35,
-    image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80",
-    stock: 45,
+    name: "Wireless Speaker",
+    description: "Portable Bluetooth speaker with rich 360° sound.",
+    price: 59.99,
+    image: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=900&q=80",
+    stock: 18,
+    active: true,
+  },
+  {
+    id: "prod-backpack",
+    storeId: "store-tech",
+    name: "Everyday Backpack",
+    description: "A lightweight and practical backpack with enough space for your everyday essentials. Perfect for work, university, travel, and daily activities.",
+    price: 49.99,
+    image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=900&q=80",
+    stock: 30,
+    active: true,
+  },
+  {
+    id: "prod-watch",
+    storeId: "store-tech",
+    name: "Smart Fitness Watch",
+    description: "Track your daily activity, workouts, and important fitness metrics with this modern smartwatch. Its lightweight design makes it comfortable for everyday use.",
+    price: 89.99,
+    image: "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?auto=format&fit=crop&w=900&q=80",
+    stock: 18,
     active: true,
   },
 ];
@@ -89,12 +118,21 @@ const fallbackStores: MockStore[] = [
   {
     id: "store-tech",
     ownerId: "demo-owner",
-    name: "Tech Store",
-    description: "Modern essentials for work, entertainment, and everyday life.",
-    logo: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=400&q=80",
-    slug: "tech-store",
-    heroTitle: "Welcome to Tech Store",
-    heroDescription: "Discover premium tools, accessories, and everyday favorites built for modern living.",
+    name: "Marva Store",
+    description: "Discover quality products at affordable prices, carefully selected to make your everyday shopping simple and enjoyable. Explore our collection of fashion, lifestyle, and everyday essentials.",
+    logo: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=400&q=80",
+    slug: "marva-store",
+    heroTitle: "Quality Products, Simple Shopping",
+    heroDescription: "Explore our carefully selected collection of products designed to make your everyday life easier and more enjoyable.",
+    banner: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1600&q=80",
+    category: "Lifestyle & Fashion",
+    owner: "Marva",
+    email: "marva@example.com",
+    phone: "+92 300 1234567",
+    address: "Faisalabad, Pakistan",
+    currency: "USD",
+    shipping: "Free Shipping",
+    status: "Active",
     products: fallbackStoreProducts,
   },
   {

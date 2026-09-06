@@ -1,74 +1,20 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState, useId } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useStoreCart } from "@/hooks/useStoreCart";
-import { addMockOrder } from "@/lib/mock-store-data";
+import { supabase } from "@/lib/supabase";
 import { formatCurrency } from "@/lib/store-utils";
-import type { ProductCardData } from "@/components/store/product-card";
-
-const PLACEHOLDER_PRODUCTS: ProductCardData[] = [
-  {
-    id: "1",
-    name: "Wireless Headphones",
-    description: "Premium over-ear wireless headphones with noise cancellation.",
-    price: 79.99,
-    image: "https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=900&q=80",
-    stock: 24,
-    active: true,
-    storeId: "store",
-    category: "Electronics",
-    rating: 4.8,
-    reviews: 128,
-  },
-  {
-    id: "2",
-    name: "Running Shoes",
-    description: "Lightweight performance runners designed for all-day comfort.",
-    price: 120,
-    image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80",
-    stock: 12,
-    active: true,
-    storeId: "store",
-    category: "Footwear",
-    rating: 4.7,
-    reviews: 95,
-  },
-  {
-    id: "3",
-    name: "Classic T-Shirt",
-    description: "Everyday soft cotton tee in a timeless fit.",
-    price: 35,
-    image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80",
-    stock: 45,
-    active: true,
-    storeId: "store",
-    category: "Apparel",
-    rating: 4.6,
-    reviews: 76,
-  },
-  {
-    id: "4",
-    name: "Summer Wireless Speaker",
-    description: "Portable wireless speaker for music anywhere.",
-    price: 59.99,
-    image: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=900&q=80",
-    stock: 18,
-    active: true,
-    storeId: "store",
-    category: "Electronics",
-    rating: 4.8,
-    reviews: 84,
-  },
-];
-
+import { SafeImage } from "@/components/ui/safe-image";
 export function CustomerCheckoutPageClient() {
   const searchParams = useSearchParams();
   const productId = searchParams.get("product");
-  const selectedProduct = PLACEHOLDER_PRODUCTS.find((p) => p.id === productId) ?? null;
-  const reactId = useId();
+  const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string; description: string; price: number; image: string; stock: number } | null>(null);
+  const [storeId, setStoreId] = useState<string | null>(null);
+  const [storeName, setStoreName] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const { clearCart } = useStoreCart();
   const shipping = 0;
@@ -84,6 +30,24 @@ export function CustomerCheckoutPageClient() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+    const loadProduct = async () => {
+      if (!productId) { setLoading(false); return; }
+      const { data } = await supabase.from("products").select("id, store_id, name, description, price, image_url, stock").eq("id", productId).eq("active", true).maybeSingle();
+      if (!active) return;
+      if (data) {
+        const { data: store } = await supabase.from("stores").select("name").eq("id", data.store_id).maybeSingle();
+        setStoreId(data.store_id);
+        setStoreName(store?.name ?? "the store");
+        setSelectedProduct({ id: data.id, name: data.name, description: data.description, price: Number(data.price), image: data.image_url ?? "", stock: data.stock });
+      }
+      setLoading(false);
+    };
+    void loadProduct();
+    return () => { active = false; };
+  }, [productId]);
+
   const unitPrice = selectedProduct ? selectedProduct.price : 0;
   const subtotal = unitPrice * quantity;
   const total = subtotal + shipping;
@@ -92,7 +56,7 @@ export function CustomerCheckoutPageClient() {
     setQuantity((current) => Math.min(10, Math.max(1, current + delta)));
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (!selectedProduct) {
       setError("No product selected.");
       return;
@@ -106,35 +70,22 @@ export function CustomerCheckoutPageClient() {
     setSubmitting(true);
     setError("");
 
-    const orderItems = [
-      {
-        id: `line-${reactId}`,
-        productId: selectedProduct.id,
-        productName: selectedProduct.name,
-        quantity,
-        unitPrice,
-        total: subtotal,
-        image: selectedProduct.image,
-      },
-    ];
-
-    const order = {
-      id: `ORD-${reactId}`,
-      storeId: "store",
-      storeName: "Marva Boutique",
-      customerName: customerName.trim(),
-      customerEmail: customerEmail.trim().toLowerCase(),
-      customerPhone: customerPhone.trim() || "(555) 000-0000",
-      customerAddress: `${customerAddress.trim()}, ${customerCity.trim()}, ${customerPostalCode.trim()}, ${customerCountry.trim()}`,
-      items: orderItems,
-      subtotal,
-      shipping,
-      total,
-      status: "Paid",
-      createdAt: new Date().toISOString(),
-    };
-
-    addMockOrder(order);
+    if (!storeId) { setError("Store information is missing."); setSubmitting(false); return; }
+    try {
+      const { error: orderError } = await supabase.rpc("create_store_order", {
+        p_store_id: storeId,
+        p_customer_name: customerName.trim(),
+        p_customer_email: customerEmail.trim().toLowerCase(),
+        p_customer_phone: customerPhone.trim(),
+        p_customer_address: `${customerAddress.trim()}, ${customerCity.trim()}, ${customerPostalCode.trim()}, ${customerCountry.trim()}`,
+        p_items: [{ product_id: selectedProduct.id, quantity }],
+      });
+      if (orderError) throw new Error(orderError.message);
+    } catch (orderError) {
+      setError(orderError instanceof Error ? orderError.message : "Failed to place order.");
+      setSubmitting(false);
+      return;
+    }
     clearCart();
     setSubmitting(false);
     setSuccess(true);
@@ -152,7 +103,7 @@ export function CustomerCheckoutPageClient() {
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-purple-700">Order Ready!</p>
           <h1 className="mt-3 text-3xl font-semibold text-purple-900">Your order has been prepared successfully.</h1>
           <p className="mt-3 text-sm text-purple-700">
-            Thank you for shopping with Marva Boutique. We&apos;ll send a confirmation to your email shortly.
+            Thank you for shopping with {storeName || "the store"}. We&apos;ll send a confirmation to your email shortly.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Button variant="primary" onClick={() => setSuccess(false)}>Place another order</Button>
@@ -163,6 +114,10 @@ export function CustomerCheckoutPageClient() {
         </div>
       </div>
     );
+  }
+
+  if (loading) {
+    return <div className="mx-auto max-w-3xl px-4 py-10 text-sm text-slate-500">Loading product…</div>;
   }
 
   if (!selectedProduct) {
@@ -305,7 +260,7 @@ export function CustomerCheckoutPageClient() {
 
             <div className="mt-5 space-y-4">
               <div className="flex items-center gap-4">
-                <img src={selectedProduct.image} alt={selectedProduct.name} className="h-20 w-20 rounded-[0.75rem] object-cover" />
+                <SafeImage src={selectedProduct.image} alt={selectedProduct.name} className="h-20 w-20 rounded-[0.75rem] object-cover" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-slate-900">{selectedProduct.name}</p>
                   <p className="text-xs text-slate-500">{selectedProduct.description}</p>

@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { LoginForm } from "@/components/auth/login-form";
+import { LoginRedirect } from "@/components/auth/login-redirect";
 
 export default function LoginPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace("/?login=1");
-  }, [router]);
-
-  return null;
+  return (
+    <>
+      <LoginRedirect />
+      <LoginForm />
+    </>
+  );
 }

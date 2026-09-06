@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { SafeImage } from "@/components/ui/safe-image";
 import { formatCurrency } from "@/lib/store-utils";
 
 export type ProductDetailsData = {
@@ -35,7 +36,7 @@ export function ProductDetails({
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="grid gap-8 rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm md:p-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="overflow-hidden rounded-[1.5rem] border border-[var(--border)] bg-slate-100">
-          <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+          <SafeImage src={product.image} alt={product.name} className="h-full w-full object-cover" />
         </div>
 
         <div className="flex flex-col justify-center">

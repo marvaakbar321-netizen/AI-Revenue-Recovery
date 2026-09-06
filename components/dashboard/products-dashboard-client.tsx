@@ -1,10 +1,14 @@
+/* eslint-disable react-hooks/set-state-in-effect -- client-side localStorage/mock store data loading after hydration */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { mockProducts, type MockProduct } from "@/lib/mock-products";
+import { SafeImage } from "@/components/ui/safe-image";
+import { type MockProduct } from "@/lib/mock-products";
+import { useStore } from "@/lib/store-context";
+import { supabase } from "@/lib/supabase";
 
 const defaultForm = {
   name: "",
@@ -19,7 +23,8 @@ const defaultForm = {
 type FormState = typeof defaultForm;
 
 export function ProductsDashboardClient() {
-  const [products, setProducts] = useState<MockProduct[]>(mockProducts);
+  const { store, loading: storeLoading } = useStore();
+  const [products, setProducts] = useState<MockProduct[]>([]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -31,6 +36,51 @@ export function ProductsDashboardClient() {
   const [form, setForm] = useState<FormState>(defaultForm);
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageSearchQuery, setImageSearchQuery] = useState("");
+  const [imageSearchResults, setImageSearchResults] = useState<Array<{ url: string; photographer: string; pageUrl: string }>>([]);
+  const [isSearchingImages, setIsSearchingImages] = useState(false);
+  const [imageSearchError, setImageSearchError] = useState("");
+
+  const userStoreId = store?.id ?? null;
+
+  useEffect(() => {
+    if (storeLoading) return;
+
+    if (!userStoreId) {
+      setProducts([]);
+      return;
+    }
+
+    const loadProducts = async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, store_id, name, description, price, image_url, stock, active")
+        .eq("store_id", userStoreId)
+        .order("created_at", { ascending: false });
+      if (error) {
+        setFormError(error.message);
+        setProducts([]);
+        return;
+      }
+      setProducts((data ?? []).map((product: { id: string; store_id: string; name: string; description: string; price: number | string; image_url: string | null; stock: number; active: boolean }) => ({
+        id: product.id,
+        storeId: product.store_id,
+        name: product.name,
+        description: product.description,
+        category: "General",
+        price: Number(product.price),
+        stock: product.stock,
+        imageUrl: product.image_url ?? "",
+        status: (product.active ? "Active" : "Draft") as MockProduct["status"],
+      })));
+    };
+    void loadProducts();
+  }, [storeLoading, userStoreId]);
+
+  const syncProductsToStore = async (next: MockProduct[]) => {
+    if (!userStoreId) return;
+    setProducts(next);
+  };
 
   const categories = useMemo(() => {
     const unique = Array.from(new Set(products.map((product) => product.category).filter(Boolean)));
@@ -90,7 +140,7 @@ export function ProductsDashboardClient() {
     setFormError("");
   };
 
-  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const trimmedName = form.name.trim();
@@ -117,34 +167,46 @@ export function ProductsDashboardClient() {
     setIsSubmitting(true);
 
     if (selectedProduct) {
-      setProducts((current) =>
-        current.map((product) =>
-          product.id === selectedProduct.id
-            ? {
-                ...product,
-                name: trimmedName,
-                description: trimmedDescription,
-                category: trimmedCategory,
-                price: parsedPrice,
-                stock: parsedStock,
-                imageUrl: form.imageUrl.trim() || product.imageUrl,
-                status: form.status,
-              }
-            : product,
-        ),
+      const updated = products.map((product) =>
+        product.id === selectedProduct.id
+          ? {
+              ...product,
+              name: trimmedName,
+              description: trimmedDescription,
+              category: trimmedCategory,
+              price: parsedPrice,
+              stock: parsedStock,
+              imageUrl: form.imageUrl.trim() || product.imageUrl,
+              status: form.status,
+            }
+          : product,
       );
+      const { error } = await supabase.from("products").update({ name: trimmedName, description: trimmedDescription, price: parsedPrice, stock: parsedStock, image_url: form.imageUrl.trim() || null, active: form.status === "Active" }).eq("id", selectedProduct.id).eq("store_id", userStoreId);
+      if (error) {
+        setFormError(error.message);
+        setIsSubmitting(false);
+        return;
+      }
+      await syncProductsToStore(updated);
     } else {
       const newProduct: MockProduct = {
-        id: `prod-${Date.now()}`,
+        id: crypto.randomUUID(),
+        storeId: userStoreId || "store",
         name: trimmedName,
         description: trimmedDescription,
         category: trimmedCategory,
         price: parsedPrice,
         stock: parsedStock,
-        imageUrl: form.imageUrl.trim() || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80",
+        imageUrl: form.imageUrl.trim(),
         status: form.status,
       };
-      setProducts((current) => [newProduct, ...current]);
+      const { data, error } = await supabase.from("products").insert({ store_id: userStoreId, name: trimmedName, description: trimmedDescription, price: parsedPrice, stock: parsedStock, image_url: form.imageUrl.trim() || null, active: form.status === "Active" }).select("id, store_id, name, description, price, image_url, stock, active").single();
+      if (error || !data) {
+        setFormError(error?.message ?? "Could not create product.");
+        setIsSubmitting(false);
+        return;
+      }
+      await syncProductsToStore([{ ...newProduct, id: data.id, imageUrl: data.image_url ?? "", price: Number(data.price), stock: data.stock } , ...products]);
     }
 
     setIsSubmitting(false);
@@ -159,9 +221,61 @@ export function ProductsDashboardClient() {
   const handleDelete = () => {
     if (!selectedProduct) return;
 
-    setProducts((current) => current.filter((product) => product.id !== selectedProduct.id));
+    const next = products.filter((product) => product.id !== selectedProduct.id);
+    void supabase.from("products").delete().eq("id", selectedProduct.id).eq("store_id", userStoreId).then(({ error }: { error: Error | null }) => {
+      if (error) {
+        setFormError(error.message);
+        return;
+      }
+      void syncProductsToStore(next);
+    });
     setIsDeleteOpen(false);
     setSelectedProduct(null);
+  };
+
+  const handleSearchImages = async () => {
+    const trimmed = imageSearchQuery.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setImageSearchError("Enter a product name with at least 2 characters.");
+      setImageSearchResults([]);
+      return;
+    }
+
+    setImageSearchError("");
+    setIsSearchingImages(true);
+    setImageSearchResults([]);
+
+    try {
+      const response = await fetch("/api/images/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: trimmed }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setImageSearchError(data.error || "No suitable image found. You can enter an Image URL manually.");
+        setIsSearchingImages(false);
+        return;
+      }
+
+      const results = Array.isArray(data.results) ? data.results : [];
+      setImageSearchResults(results);
+      if (results.length === 0) {
+        setImageSearchError("No suitable image found. You can enter an Image URL manually.");
+      }
+    } catch {
+      setImageSearchError("No suitable image found. You can enter an Image URL manually.");
+      setImageSearchResults([]);
+    } finally {
+      setIsSearchingImages(false);
+    }
+  };
+
+  const handleSelectImage = (url: string) => {
+    setForm((current) => ({ ...current, imageUrl: url }));
+    setImageSearchResults([]);
+    setImageSearchError("");
   };
 
   return (
@@ -243,11 +357,7 @@ export function ProductsDashboardClient() {
                   filteredProducts.map((product) => (
                     <tr key={product.id} className="align-middle">
                       <td className="px-4 py-4">
-                        <img
-                          src={product.imageUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80"}
-                          alt={product.name}
-                          className="h-12 w-12 rounded-[0.875rem] object-cover"
-                        />
+                        <SafeImage src={product.imageUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80"} alt={product.name} className="h-12 w-12 rounded-[0.875rem] object-cover" />
                       </td>
                       <td className="px-4 py-4">
                         <div>
@@ -384,15 +494,61 @@ export function ProductsDashboardClient() {
               </label>
             </div>
 
-            <label className="block space-y-2">
+            <div className="block space-y-2">
               <span className="text-sm font-medium text-[var(--text)]">Image URL</span>
-              <input
-                value={form.imageUrl}
-                onChange={(event) => setForm((current) => ({ ...current, imageUrl: event.target.value }))}
-                className="min-h-[44px] w-full rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10 placeholder:text-slate-400"
-                placeholder="https://example.com/product.jpg"
-              />
-            </label>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <input
+                    value={form.imageUrl}
+                    onChange={(event) => setForm((current) => ({ ...current, imageUrl: event.target.value }))}
+                    className="min-h-[44px] flex-1 rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10 placeholder:text-slate-400"
+                    placeholder="https://example.com/product.jpg"
+                  />
+                  <Button type="button" variant="secondary" onClick={handleSearchImages} disabled={isSearchingImages}>
+                    {isSearchingImages ? "Searching..." : "Find Image"}
+                  </Button>
+                </div>
+                {form.imageUrl ? (
+                  <SafeImage src={form.imageUrl} alt="Selected product image preview" className="h-40 w-full rounded-[0.875rem] border border-[var(--border)] object-cover" fallback="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80" />
+                ) : null}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-[var(--text)]">Search Images</span>
+              <div className="flex gap-2">
+                <input
+                  value={imageSearchQuery}
+                  onChange={(event) => setImageSearchQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void handleSearchImages();
+                    }
+                  }}
+                  className="min-h-[44px] flex-1 rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10 placeholder:text-slate-400"
+                  placeholder="Search for a product image..."
+                />
+                <Button type="button" variant="secondary" onClick={handleSearchImages} disabled={isSearchingImages}>
+                  {isSearchingImages ? "Searching..." : "Search"}
+                </Button>
+              </div>
+              {imageSearchError ? <p className="text-sm text-[var(--muted)]">{imageSearchError}</p> : null}
+              {imageSearchResults.length > 0 ? (
+                <div className="grid grid-cols-3 gap-3">
+                  {imageSearchResults.map((result) => (
+                    <button
+                      key={result.url + result.photographer}
+                      type="button"
+                      onClick={() => handleSelectImage(result.url)}
+                      className="overflow-hidden rounded-[0.875rem] border border-[var(--border)] bg-slate-50 transition hover:ring-2 hover:ring-[var(--primary)]"
+                    >
+                      <SafeImage src={result.url} alt={imageSearchQuery} className="h-24 w-full object-cover" fallback="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80" />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
 
             <label className="block space-y-2">
               <span className="text-sm font-medium text-[var(--text)]">Status</span>
@@ -458,11 +614,7 @@ export function ProductsDashboardClient() {
               </div>
 
               <div className="overflow-hidden rounded-[1.25rem] border border-[var(--border)]">
-                <img
-                  src={viewProduct.imageUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80"}
-                  alt={viewProduct.name}
-                  className="h-56 w-full object-cover"
-                />
+                <SafeImage src={viewProduct.imageUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80"} alt={viewProduct.name} className="h-56 w-full object-cover" />
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">

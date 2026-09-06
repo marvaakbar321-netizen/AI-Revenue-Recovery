@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import useAuth from "@/hooks/useAuth";
 import { useStore } from "@/lib/store-context";
 import { formatCurrency, slugify } from "@/lib/store-utils";
+import { useOrders } from "@/hooks/useOrders";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 
 const initialForm = {
   name: "",
@@ -18,6 +21,9 @@ type FormState = typeof initialForm;
 export function StoreDashboardClient() {
   const { user } = useAuth();
   const { store, loading, error, createStore } = useStore();
+  const { orders, customerCount } = useOrders();
+  const stats = useDashboardStats(orders, store?.products?.length ?? 0, 0, customerCount);
+  const router = useRouter();
   const [form, setForm] = useState<FormState>(initialForm);
   const [submitting, setSubmitting] = useState(false);
 
@@ -34,16 +40,19 @@ export function StoreDashboardClient() {
 
     const trimmedName = form.name.trim();
     const trimmedDescription = form.description.trim();
+    const slugValue = slugify(trimmedName);
+    const heroTitle = `Welcome to ${trimmedName}`;
+    const heroDescription = trimmedDescription;
 
     if (!trimmedName || !trimmedDescription) {
       return;
     }
 
-    setSubmitting(true);
+    if (store) {
+      return;
+    }
 
-    const slugValue = slugify(trimmedName);
-    const heroTitle = `Welcome to ${trimmedName}`;
-    const heroDescription = trimmedDescription;
+    setSubmitting(true);
 
     const newStore = await createStore({
       name: trimmedName,
@@ -58,7 +67,7 @@ export function StoreDashboardClient() {
     setForm(initialForm);
 
     if (newStore) {
-      window.location.href = `/store/${newStore.slug}`;
+      router.push(`/store/${newStore.slug}`);
     }
   };
 
@@ -72,9 +81,14 @@ export function StoreDashboardClient() {
           <h1 className="mt-2 text-3xl font-semibold text-[var(--text)]">Your storefront</h1>
         </div>
         {createdStore ? (
-          <Link href={`/store/${createdStore.slug}`} className="text-sm font-semibold text-[var(--primary)]">
-            View public store →
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href={`/dashboard/products`} className="text-sm font-semibold text-[var(--primary)]">
+              Manage products →
+            </Link>
+            <Link href={`/store/${createdStore.slug}`} className="text-sm font-semibold text-[var(--primary)]">
+              View public store →
+            </Link>
+          </div>
         ) : null}
       </section>
 
@@ -87,8 +101,8 @@ export function StoreDashboardClient() {
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2 md:col-span-2">
+          <div className="grid gap-4">
+            <label className="space-y-2">
               <span className="text-sm font-medium text-[var(--text)]">Store name <span className="text-[var(--danger)]">*</span></span>
               <input
                 value={form.name}
@@ -99,7 +113,7 @@ export function StoreDashboardClient() {
               />
             </label>
 
-            <label className="space-y-2 md:col-span-2">
+            <label className="space-y-2">
               <span className="text-sm font-medium text-[var(--text)]">Store description <span className="text-[var(--danger)]">*</span></span>
               <textarea
                 value={form.description}
@@ -111,10 +125,10 @@ export function StoreDashboardClient() {
               />
             </label>
 
-            <label className="space-y-2 md:col-span-2">
+            <label className="space-y-2">
               <span className="text-sm font-medium text-[var(--text)]">Store logo / image <span className="text-xs text-[var(--muted)]">(optional)</span></span>
               <input
-                value={form.logo}
+                value={form.logo || ""}
                 onChange={(event) => handleChange("logo", event.target.value)}
                 className="w-full rounded-[0.875rem] border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)]"
                 placeholder="https://example.com/logo.jpg"
@@ -153,7 +167,7 @@ export function StoreDashboardClient() {
               </div>
               <div className="flex items-center justify-between rounded-[1rem] bg-slate-50 p-3">
                 <dt className="text-[var(--muted)]">Revenue</dt>
-                <dd className="font-semibold text-[var(--text)]">{formatCurrency(0)}</dd>
+                <dd className="font-semibold text-[var(--text)]">{formatCurrency(stats.totalRevenue)}</dd>
               </div>
             </dl>
           </div>
